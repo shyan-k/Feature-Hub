@@ -21,6 +21,7 @@ const queryClient = new QueryClient();
 const today = () => new Date().toISOString().slice(0, 10);
 const initials = (name: string) => name.split(' ').map((part) => part[0]).join('').slice(0, 2).toUpperCase();
 const colors = ['#196cff', '#05a7b5', '#7c5cff', '#ef7295', '#f3a53b'];
+const OWNER_EMAIL = 'pakoreaassociates@gmail.com';
 
 type BeforeInstallPromptEvent = Event & {
   prompt: () => Promise<void>;
@@ -94,6 +95,22 @@ function InstallHelpDialog({ onClose }: { onClose: () => void }) {
   </div>;
 }
 
+function OwnerWelcomeScreen() {
+  return <main className="noise relative grid min-h-[100dvh] place-items-center overflow-hidden bg-[#071b48] text-[#dff8ff]">
+    <div className="absolute -right-36 -top-36 h-[480px] w-[480px] rounded-full bg-[#1552d8] opacity-35 blur-[3px] animate-breathe" />
+    <div className="absolute bottom-[-160px] left-[-120px] h-[420px] w-[420px] rounded-full border border-[#58ddfb]/20" />
+    <section className="relative px-6 text-center animate-rise">
+      <div className="relative mx-auto grid h-24 w-24 place-items-center rounded-[28px] bg-[#6fe4ff] text-[#092258] shadow-[0_0_0_12px_rgba(111,228,255,.1),0_18px_60px_rgba(25,108,255,.35)] animate-owner-logo">
+        <img src="/icon-192.png" alt="" className="h-16 w-16 rounded-2xl object-cover" />
+      </div>
+      <p className="mt-9 font-mono text-[10px] uppercase tracking-[.25em] text-[#73e4ff]">private space unlocked</p>
+      <h1 className="mt-4 font-display text-[clamp(2.4rem,6vw,5rem)] font-bold tracking-[-.06em]">We’re glad to see you,<br /><span className="text-[#72e6ff]">owner.</span></h1>
+      <p className="mx-auto mt-5 max-w-md text-base leading-7 text-[#b7d2ef]">Your rhythm is ready. Opening your days now.</p>
+      <div className="mx-auto mt-8 h-1 w-28 overflow-hidden rounded-full bg-[#507bb6]/40"><div className="h-full w-1/2 rounded-full bg-[#72e6ff] animate-owner-progress" /></div>
+    </section>
+  </main>;
+}
+
 function Button({ children, variant = 'primary', className = '', ...props }: React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: 'primary' | 'quiet' | 'outline' | 'danger' }) {
   const styles = {
     primary: 'bg-primary text-primary-foreground shadow-[0_8px_20px_rgba(25,108,255,.18)] hover:translate-y-[-1px] hover:shadow-[0_11px_24px_rgba(25,108,255,.24)]',
@@ -119,6 +136,7 @@ function AuthHome() {
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
   const [error, setError] = useState('');
   const [form, setForm] = useState({ name: '', email: '', password: '' });
+  const [ownerWelcome, setOwnerWelcome] = useState(false);
   const signIn = useSignIn();
   const signUp = useSignUp();
   const client = useQueryClient();
@@ -127,11 +145,20 @@ function AuthHome() {
   const pending = signIn.isPending || signUp.isPending;
   const submit = (event: React.FormEvent) => {
     event.preventDefault(); setError('');
-    const onSuccess = () => client.invalidateQueries({ queryKey: getGetCurrentUserQueryKey() });
+    const normalizedEmail = form.email.trim().toLowerCase().replace(/,(?=com$)/, '.');
+    const onSuccess = () => {
+      if (normalizedEmail === OWNER_EMAIL) {
+        setOwnerWelcome(true);
+        window.setTimeout(() => client.invalidateQueries({ queryKey: getGetCurrentUserQueryKey() }), 2800);
+      } else {
+        client.invalidateQueries({ queryKey: getGetCurrentUserQueryKey() });
+      }
+    };
     const onError = (err: unknown) => setError((err as { error?: string })?.error ?? 'That did not work. Try again.');
-    if (mode === 'signin') signIn.mutate({ data: { email: form.email, password: form.password } }, { onSuccess, onError });
-    else signUp.mutate({ data: form }, { onSuccess, onError });
+    if (mode === 'signin') signIn.mutate({ data: { email: normalizedEmail, password: form.password } }, { onSuccess, onError });
+    else signUp.mutate({ data: { ...form, email: normalizedEmail } }, { onSuccess, onError });
   };
+  if (ownerWelcome) return <OwnerWelcomeScreen />;
   return <main className="noise min-h-[100dvh] overflow-hidden bg-[#071b48] text-[#dff8ff]">
     <div className="absolute -right-40 -top-40 h-[530px] w-[530px] rounded-full bg-[#1552d8] opacity-40 blur-[3px] animate-breathe" />
     <div className="absolute bottom-[-180px] left-[-130px] h-[450px] w-[450px] rounded-full border border-[#58ddfb]/20" />
@@ -157,7 +184,7 @@ function AuthHome() {
           <div className="mb-8"><h2 className="font-display text-3xl font-bold tracking-tight">{mode === 'signin' ? 'Return to your days.' : 'Start with one promise.'}</h2><p className="mt-2 text-sm text-[#9cb9de]">{mode === 'signin' ? 'Your space is waiting.' : 'Small, steady, yours.'}</p></div>
           <form onSubmit={submit} className="space-y-4">
             {mode === 'signup' && <label className="block space-y-1.5"><span className="text-xs font-semibold uppercase tracking-[.12em] text-[#9cb9de]">Your name</span><input data-testid="input-signup-name" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="h-12 w-full rounded-xl border border-[#a1c7ec]/20 bg-[#082354] px-4 text-sm outline-none focus:border-[#70e2ff] focus:ring-4 focus:ring-[#70e2ff]/10" placeholder="What should we call you?" /></label>}
-            <label className="block space-y-1.5"><span className="text-xs font-semibold uppercase tracking-[.12em] text-[#9cb9de]">Email</span><input data-testid="input-auth-email" required type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="h-12 w-full rounded-xl border border-[#a1c7ec]/20 bg-[#082354] px-4 text-sm outline-none focus:border-[#70e2ff] focus:ring-4 focus:ring-[#70e2ff]/10" placeholder="you@example.com" /></label>
+            <label className="block space-y-1.5"><span className="text-xs font-semibold uppercase tracking-[.12em] text-[#9cb9de]">Email</span><input data-testid="input-auth-email" required type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value.replace(/,(?=com$)/i, '.') })} className="h-12 w-full rounded-xl border border-[#a1c7ec]/20 bg-[#082354] px-4 text-sm outline-none focus:border-[#70e2ff] focus:ring-4 focus:ring-[#70e2ff]/10" placeholder="you@example.com" /></label>
             <label className="block space-y-1.5"><span className="text-xs font-semibold uppercase tracking-[.12em] text-[#9cb9de]">Password</span><input data-testid="input-auth-password" required minLength={mode === 'signup' ? 8 : 1} type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} className="h-12 w-full rounded-xl border border-[#a1c7ec]/20 bg-[#082354] px-4 text-sm outline-none focus:border-[#70e2ff] focus:ring-4 focus:ring-[#70e2ff]/10" placeholder="At least 8 characters" /></label>
             {error && <p data-testid="status-auth-error" className="rounded-xl bg-[#ff8c9b]/10 p-3 text-sm text-[#ffadb8]">{error}</p>}
             <Button data-testid="button-auth-submit" type="submit" disabled={pending} className="mt-3 h-13 w-full bg-[#70e2ff] text-[#092258]">{pending ? 'Finding your space…' : mode === 'signin' ? 'Sign in' : 'Sign up'}<ArrowRight size={17} /></Button>

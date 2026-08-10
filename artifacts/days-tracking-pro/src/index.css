@@ -133,9 +133,13 @@ button { cursor: pointer; }
 @keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes breathe { 0%, 100% { transform: scale(1); opacity: .72; } 50% { transform: scale(1.08); opacity: 1; } }
 @keyframes check-pop { 0% { transform: scale(.72); opacity: .4; } 70% { transform: scale(1.12); } 100% { transform: scale(1); opacity: 1; } }
+@keyframes owner-logo { 0%, 100% { transform: scale(1) rotate(0deg); } 45% { transform: scale(1.08) rotate(-3deg); } 75% { transform: scale(1.03) rotate(3deg); } }
+@keyframes owner-progress { from { transform: translateX(-220%); } to { transform: translateX(420%); } }
 .animate-rise { animation: rise .45s cubic-bezier(.22,1,.36,1) both; }
 .animate-breathe { animation: breathe 5s ease-in-out infinite; }
 .animate-check-pop { animation: check-pop .25s ease-out both; }
+.animate-owner-logo { animation: owner-logo 2.2s ease-in-out infinite; }
+.animate-owner-progress { animation: owner-progress 1.35s ease-in-out infinite; }
 .delay-1 { animation-delay: .08s; } .delay-2 { animation-delay: .16s; } .delay-3 { animation-delay: .24s; }
 .ritual-grid {
   background-image: linear-gradient(rgba(25,108,255,.055) 1px, transparent 1px), linear-gradient(90deg, rgba(25,108,255,.055) 1px, transparent 1px);
