@@ -101,7 +101,7 @@ function Button({ children, variant = 'primary', className = '', ...props }: Rea
     outline: 'border border-border bg-card text-foreground hover:border-primary hover:text-primary',
     danger: 'border border-destructive/25 bg-destructive/5 text-destructive hover:bg-destructive/10',
   };
-  return <button {...props} className={`inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-200 disabled:pointer-events-none disabled:opacity-50 ${styles[variant]} ${className}`} />;
+  return <button {...props} className={`inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-200 disabled:pointer-events-none disabled:opacity-50 ${styles[variant]} ${className}`}>{children}</button>;
 }
 
 function Logo({ compact = false }: { compact?: boolean }) {
@@ -160,7 +160,7 @@ function AuthHome() {
             <label className="block space-y-1.5"><span className="text-xs font-semibold uppercase tracking-[.12em] text-[#9cb9de]">Email</span><input data-testid="input-auth-email" required type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="h-12 w-full rounded-xl border border-[#a1c7ec]/20 bg-[#082354] px-4 text-sm outline-none focus:border-[#70e2ff] focus:ring-4 focus:ring-[#70e2ff]/10" placeholder="you@example.com" /></label>
             <label className="block space-y-1.5"><span className="text-xs font-semibold uppercase tracking-[.12em] text-[#9cb9de]">Password</span><input data-testid="input-auth-password" required minLength={mode === 'signup' ? 8 : 1} type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} className="h-12 w-full rounded-xl border border-[#a1c7ec]/20 bg-[#082354] px-4 text-sm outline-none focus:border-[#70e2ff] focus:ring-4 focus:ring-[#70e2ff]/10" placeholder="At least 8 characters" /></label>
             {error && <p data-testid="status-auth-error" className="rounded-xl bg-[#ff8c9b]/10 p-3 text-sm text-[#ffadb8]">{error}</p>}
-            <Button data-testid="button-auth-submit" type="submit" disabled={pending} className="mt-3 h-13 w-full bg-[#70e2ff] text-[#092258]">{pending ? 'Finding your space…' : mode === 'signin' ? 'Enter my days' : 'Create my space'}<ArrowRight size={17} /></Button>
+            <Button data-testid="button-auth-submit" type="submit" disabled={pending} className="mt-3 h-13 w-full bg-[#70e2ff] text-[#092258]">{pending ? 'Finding your space…' : mode === 'signin' ? 'Sign in' : 'Sign up'}<ArrowRight size={17} /></Button>
           </form>
           <p className="mt-7 text-center text-xs leading-5 text-[#7898c2]">Private by default. No feeds, no noise, no performance.</p>
         </div>
