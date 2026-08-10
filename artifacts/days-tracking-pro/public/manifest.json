@@ -1,0 +1,27 @@
+{
+  "id": "/",
+  "name": "Days Tracking Pro",
+  "short_name": "DaysTrack",
+  "description": "A private, installable space for tracking habits, days, streaks, and personal rhythm.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#071b48",
+  "theme_color": "#071b48",
+  "categories": ["productivity", "lifestyle", "health"],
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

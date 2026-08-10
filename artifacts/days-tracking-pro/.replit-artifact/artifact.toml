@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "Days Tracking Pro"
+description = "A polished habit and day-tracking workspace with real accounts, saved data, multi-page trackers, auto-check rules, reports, insights, and expressive light, blue, and dark themes."
+version = "1.0.0"
+id = "artifacts/days-tracking-pro"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 18393
+
+[services.development]
+run = "pnpm --filter @workspace/days-tracking-pro run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/days-tracking-pro", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/days-tracking-pro/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "18393"
+BASE_PATH = "/"

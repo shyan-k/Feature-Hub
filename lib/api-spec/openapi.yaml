@@ -10,6 +10,12 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: auth
+    description: Account and session operations
+  - name: tracker
+    description: Tracker data and insights
+  - name: reports
+    description: Issue reporting
 paths:
   /healthz:
     get:
@@ -24,6 +30,175 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /auth/signup:
+    post:
+      operationId: signUp
+      tags: [auth]
+      summary: Create a tracker account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SignUpInput"
+      responses:
+        "201":
+          description: Account created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "409":
+          description: Email already registered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /auth/signin:
+    post:
+      operationId: signIn
+      tags: [auth]
+      summary: Sign in to a tracker account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SignInInput"
+      responses:
+        "200":
+          description: Signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: No account exists for the supplied email
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /auth/signout:
+    post:
+      operationId: signOut
+      tags: [auth]
+      summary: End the current session
+      responses:
+        "204":
+          description: Signed out
+  /auth/me:
+    get:
+      operationId: getCurrentUser
+      tags: [auth]
+      summary: Get the current signed-in user
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthUser"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /tracker:
+    get:
+      operationId: getTracker
+      tags: [tracker]
+      summary: Load the current user's tracker
+      responses:
+        "200":
+          description: Tracker state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TrackerState"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    put:
+      operationId: saveTracker
+      tags: [tracker]
+      summary: Save the current user's tracker
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TrackerState"
+      responses:
+        "200":
+          description: Saved tracker state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TrackerState"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /tracker/insights:
+    get:
+      operationId: getTrackerInsights
+      tags: [tracker]
+      summary: Get tracker-wide insights
+      responses:
+        "200":
+          description: Tracker insights
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TrackerInsights"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /reports:
+    post:
+      operationId: createReport
+      tags: [reports]
+      summary: Send an issue report
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReportInput"
+      responses:
+        "201":
+          description: Report sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReportResult"
+        "400":
+          description: Invalid report
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "502":
+          description: Report service unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 components:
   schemas:
     HealthStatus:
@@ -33,4 +208,159 @@ components:
           type: string
       required:
         - status
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required: [error]
+    AuthUser:
+      type: object
+      properties:
+        id:
+          type: number
+        name:
+          type: string
+        email:
+          type: string
+      required: [id, name, email]
+    SignUpInput:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+        email:
+          type: string
+        password:
+          type: string
+          minLength: 8
+      required: [name, email, password]
+    SignInInput:
+      type: object
+      properties:
+        email:
+          type: string
+        password:
+          type: string
+          minLength: 1
+      required: [email, password]
+    AuthResponse:
+      type: object
+      properties:
+        user:
+          $ref: "#/components/schemas/AuthUser"
+      required: [user]
+    TrackerState:
+      type: object
+      properties:
+        profileName:
+          type: string
+        pages:
+          type: array
+          items:
+            $ref: "#/components/schemas/TrackerPage"
+        activePageId:
+          type: string
+      required: [profileName, pages, activePageId]
+    TrackerPage:
+      type: object
+      properties:
+        id:
+          type: string
+        habitName:
+          type: string
+        color:
+          type: string
+        icon:
+          type: string
+        startDate:
+          type: string
+          format: date
+        daysCount:
+          type: number
+        autoCheck:
+          type: string
+          enum: [none, tick, cross]
+        timer:
+          type: string
+          enum: [never, 1h, 6h, 12h, 24h]
+        trackerData:
+          type: object
+          additionalProperties:
+            type: string
+            enum: [none, checked, crossed]
+        history:
+          type: array
+          items:
+            $ref: "#/components/schemas/TrackerCycle"
+      required: [id, habitName, color, icon, startDate, daysCount, autoCheck, timer, trackerData, history]
+    TrackerCycle:
+      type: object
+      properties:
+        id:
+          type: string
+        habitName:
+          type: string
+        period:
+          type: string
+        checked:
+          type: number
+        crossed:
+          type: number
+        total:
+          type: number
+        savedAt:
+          type: string
+          format: date-time
+      required: [id, habitName, period, checked, crossed, total, savedAt]
+    TrackerInsights:
+      type: object
+      properties:
+        totalPages:
+          type: number
+        totalChecked:
+          type: number
+        totalCrossed:
+          type: number
+        bestStreak:
+          type: number
+        completionRate:
+          type: number
+        activeDays:
+          type: number
+        weekly:
+          type: array
+          items:
+            $ref: "#/components/schemas/InsightDay"
+      required: [totalPages, totalChecked, totalCrossed, bestStreak, completionRate, activeDays, weekly]
+    InsightDay:
+      type: object
+      properties:
+        day:
+          type: string
+        checked:
+          type: number
+        crossed:
+          type: number
+      required: [day, checked, crossed]
+    ReportInput:
+      type: object
+      properties:
+        message:
+          type: string
+          minLength: 5
+        email:
+          type: string
+        name:
+          type: string
+      required: [message]
+    ReportResult:
+      type: object
+      properties:
+        sent:
+          type: boolean
+        message:
+          type: string
+      required: [sent, message]
 
