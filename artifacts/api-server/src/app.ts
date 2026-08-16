@@ -27,7 +27,14 @@ app.use(
   }),
 );
 app.use(cookieParser(process.env.SESSION_SECRET));
-app.use(cors());
+app.use(
+  cors({
+    // Must be an explicit origin (or a function/list of origins) — '*' is
+    // rejected by browsers once credentials are involved.
+    origin: process.env.CLIENT_ORIGIN, // e.g. your Replit preview URL
+    credentials: true, // <--- required so the browser accepts/sends the session cookie
+  }),
+);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

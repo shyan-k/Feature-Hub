@@ -360,7 +360,18 @@ export async function customFetch<T = unknown>(
 
   const requestInfo = { method, url: resolveUrl(input) };
 
-  const response = await fetch(input, { ...init, method, headers });
+  const response = await fetch(input, {
+    // Default to sending/storing the session cookie on every request.
+    // Without this, requests default to `credentials: "same-origin"`,
+    // which silently drops the auth cookie whenever the frontend and
+    // backend are on different origins (e.g. a Replit preview domain
+    // calling a separate API domain/port) — this is what breaks sign-in.
+    // A caller can still override by passing their own `credentials`.
+    credentials: "include",
+    ...init,
+    method,
+    headers,
+  });
 
   if (!response.ok) {
     const errorData = await parseErrorBody(response, method);
