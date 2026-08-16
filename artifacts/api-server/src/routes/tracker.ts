@@ -75,14 +75,25 @@ async function currentUser(req: Request) {
   return user ?? null;
 }
 
-function setSession(res: Response, userId: number): void {
+async function setSession(res: Response, userId: number): Promise<void> {
   const id = sessionId();
-  void db.insert(sessionsTable).values({ id, userId, expiresAt: addDays(SESSION_DAYS) });
+  // Await the insert — this was previously fire-and-forget ("void"), so any
+  // failure (or just a slow write) was silently swallowed while the cookie
+  // was still sent to the browser. That let the client hold a session id
+  // that was never actually written to the sessions table, so every later
+  // lookup in currentUser() would fail and return 401 forever.
+  await db.insert(sessionsTable).values({ id, userId, expiresAt: addDays(SESSION_DAYS) });
   res.cookie("dtp_session", id, {
     signed: true,
     httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    // Frontend and backend run on different origins (separate Replit apps),
+    // so this is a cross-site request from the browser's point of view.
+    // SameSite=Lax cookies are withheld from cross-site fetch/XHR calls —
+    // only SameSite=None is sent on those. Browsers require `secure: true`
+    // whenever sameSite is "none" (this can't be conditional on NODE_ENV;
+    // Replit preview domains are HTTPS, so this is safe in dev too).
+    sameSite: "none",
+    secure: true,
     maxAge: SESSION_DAYS * 24 * 60 * 60 * 1000,
     path: "/",
   });
@@ -114,7 +125,7 @@ router.post("/auth/signup", async (req, res): Promise<void> => {
     return;
   }
   await db.insert(trackerStatesTable).values({ userId: user.id, data: defaultState(user.name) });
-  setSession(res, user.id);
+  await setSession(res, user.id);
   res.status(201).json(SignUpResponse.parse({ user: userResponse(user) }));
 });
 
@@ -133,7 +144,7 @@ router.post("/auth/signin", async (req, res): Promise<void> => {
     res.status(401).json({ error: "Email or password is incorrect." });
     return;
   }
-  setSession(res, user.id);
+  await setSession(res, user.id);
   res.json(SignInResponse.parse({ user: userResponse(user) }));
 });
 
