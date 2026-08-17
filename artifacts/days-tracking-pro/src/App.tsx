@@ -277,19 +277,20 @@ function TrackerHome({ user }: { user: AuthUser }) {
       const next = auto && auto !== 'none'
         ? {
             ...serverTracker,
-            pages: serverTracker.pages.map((page) => {
-              const data = { ...page.trackerData };
-              const start = new Date(`${page.startDate}T12:00:00`);
-              for (let index = 0; index < page.daysCount; index += 1) {
-                const day = new Date(start);
-                day.setDate(start.getDate() + index);
-                const key = day.toISOString().slice(0, 10);
-                if (key < today() && (!data[key] || data[key] === 'none')) {
-                  data[key] = auto === 'tick' ? 'checked' : 'crossed';
-                }
-              }
-              return { ...page, trackerData: data };
-            }),
+           pages: serverTracker.pages.map((page) => {
+             const start = new Date(`${page.startDate}T12:00:00`);
+             if (Number.isNaN(start.getTime())) return page;
+             const data = { ...page.trackerData };
+             for (let index = 0; index < page.daysCount; index += 1) {
+               const day = new Date(start);
+               day.setDate(start.getDate() + index);
+               const key = day.toISOString().slice(0, 10);
+               if (key < today() && (!data[key] || data[key] === 'none')) {
+                 data[key] = auto === 'tick' ? 'checked' : 'crossed';
+               }
+             }
+             return { ...page, trackerData: data };
+           }),
           }
         : serverTracker;
       setTracker(next);
