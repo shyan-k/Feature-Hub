@@ -95,17 +95,7 @@ function InstallHelpDialog({ onClose }: { onClose: () => void }) {
   </div>;
 }
 
-function OwnerWelcomeScreen({ onTimeout }: { onTimeout: () => void }) {
-  // Safety net: this screen should only ever be visible for the ~2.8s it
-  // takes to refetch the session after sign-in. If that refetch doesn't
-  // resolve to a signed-in user (a slow server, a hiccup, anything), this
-  // used to leave the person stuck here forever with no way out. Give it a
-  // generous grace period, then bail back to the sign-in form with an error
-  // instead of freezing the app.
-  useEffect(() => {
-    const timer = window.setTimeout(onTimeout, 6000);
-    return () => window.clearTimeout(timer);
-  }, [onTimeout]);
+function OwnerWelcomeScreen() {
   return <main className="noise relative grid min-h-[100dvh] place-items-center overflow-hidden bg-[#071b48] text-[#dff8ff]">
     <div className="absolute -right-36 -top-36 h-[480px] w-[480px] rounded-full bg-[#1552d8] opacity-35 blur-[3px] animate-breathe" />
     <div className="absolute bottom-[-160px] left-[-120px] h-[420px] w-[420px] rounded-full border border-[#58ddfb]/20" />
@@ -153,13 +143,6 @@ function AuthHome() {
   const { canInstall, installed, install } = useInstallPrompt();
   const [installHelpOpen, setInstallHelpOpen] = useState(false);
   const pending = signIn.isPending || signUp.isPending;
-  // Watch the same query the rest of the app uses to gate access. Once this
-  // resolves to a real user, the welcome screen can safely close on its own
-  // instead of waiting on a fixed timer.
-  const { data: refetchedUser } = useGetCurrentUser({ query: { queryKey: getGetCurrentUserQueryKey(), retry: false, enabled: ownerWelcome } });
-  useEffect(() => {
-    if (ownerWelcome && refetchedUser) setOwnerWelcome(false);
-  }, [ownerWelcome, refetchedUser]);
   const submit = (event: React.FormEvent) => {
     event.preventDefault(); setError('');
     const normalizedEmail = form.email.trim().toLowerCase().replace(/,(?=com$)/, '.');
@@ -175,10 +158,7 @@ function AuthHome() {
     if (mode === 'signin') signIn.mutate({ data: { email: normalizedEmail, password: form.password } }, { onSuccess, onError });
     else signUp.mutate({ data: { ...form, email: normalizedEmail } }, { onSuccess, onError });
   };
-  if (ownerWelcome) return <OwnerWelcomeScreen onTimeout={() => {
-    setOwnerWelcome(false);
-    setError('That took longer than expected. Please try signing in again.');
-  }} />;
+  if (ownerWelcome) return <OwnerWelcomeScreen />;
   return <main className="noise min-h-[100dvh] overflow-hidden bg-[#071b48] text-[#dff8ff]">
     <div className="absolute -right-40 -top-40 h-[530px] w-[530px] rounded-full bg-[#1552d8] opacity-40 blur-[3px] animate-breathe" />
     <div className="absolute bottom-[-180px] left-[-130px] h-[450px] w-[450px] rounded-full border border-[#58ddfb]/20" />
