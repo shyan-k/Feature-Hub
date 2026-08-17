@@ -566,12 +566,8 @@ function Shell({ user, children }: { user: AuthUser; children: ReactNode }) {
     { href: "/settings", label: "Settings", icon: Settings2 },
   ];
   const doSignOut = () => {
-    console.log("sign out clicked");
     signOut.mutate(undefined, {
-      onSettled: () => {
-        console.log("onSettled firing, clearing cache");
-        client.clear();
-      },
+      onSettled: () => client.resetQueries(),
     });
   };
   return (
