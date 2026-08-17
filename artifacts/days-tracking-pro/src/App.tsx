@@ -205,7 +205,11 @@ function Shell({ user, children }: { user: AuthUser; children: ReactNode }) {
   const [creditsOpen, setCreditsOpen] = useState(false);
   const [installHelpOpen, setInstallHelpOpen] = useState(false);
   const nav = [{ href: '/', label: 'Today', icon: LayoutDashboard }, { href: '/insights', label: 'Insights', icon: TrendingUp }, { href: '/settings', label: 'Settings', icon: Settings2 }];
-  const doSignOut = () => signOut.mutate(undefined, { onSuccess: () => client.invalidateQueries({ queryKey: getGetCurrentUserQueryKey() }) });
+  const doSignOut = () => {
+    signOut.mutate(undefined, {
+      onSettled: () => client.clear(), // wipes cached user + tracker + insights data
+    });
+  };
   return <div className="noise flex min-h-[100dvh] bg-background">
     <aside className={`fixed inset-y-0 left-0 z-40 w-[270px] transform bg-sidebar px-5 py-6 text-sidebar-foreground transition-transform duration-300 lg:static lg:translate-x-0 ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}`}>
       <div className="flex h-full flex-col"><div className="flex items-center justify-between"><Logo /><button data-testid="button-close-menu" onClick={() => setMobileOpen(false)} className="rounded-lg p-2 text-sidebar-foreground/60 lg:hidden"><X size={18} /></button></div>
