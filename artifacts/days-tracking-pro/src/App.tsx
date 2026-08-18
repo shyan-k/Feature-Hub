@@ -157,7 +157,7 @@ function CreditsDialog({ onClose }: { onClose: () => void }) {
         </div>
         <div className="mt-8 rounded-2xl bg-primary/5 p-5">
           <p className="text-lg font-semibold">
-            Every credit goes to Shayan Khan.
+           App Developed By: Shayan Khan.
           </p>
           <p className="mt-2 text-sm leading-6 text-muted-foreground">
             Days Tracking Pro is a private place to keep promises, notice
@@ -165,7 +165,7 @@ function CreditsDialog({ onClose }: { onClose: () => void }) {
           </p>
         </div>
         <p className="mt-6 text-center font-mono text-[10px] uppercase tracking-[.2em] text-muted-foreground">
-          Also Me
+         everything else: also me
         </p>
         <Button
           data-testid="button-dismiss-credits"
@@ -173,7 +173,7 @@ function CreditsDialog({ onClose }: { onClose: () => void }) {
           onClick={onClose}
           className="mt-6 w-full"
         >
-          Back to my days
+          Back to the Track
         </Button>
       </section>
     </div>
@@ -192,7 +192,7 @@ function InstallHelpDialog({ onClose }: { onClose: () => void }) {
         <div className="flex items-start justify-between">
           <div>
             <p className="font-mono text-[10px] uppercase tracking-[.2em] text-primary">
-              install days
+              install days tracking pro
             </p>
             <h2
               id="install-help-title"
@@ -241,7 +241,7 @@ function InstallHelpDialog({ onClose }: { onClose: () => void }) {
           onClick={onClose}
           className="mt-7 w-full"
         >
-          Got it
+          Got it Bro
         </Button>
       </section>
     </div>
@@ -1055,7 +1055,7 @@ function TrackerHome({ user }: { user: AuthUser }) {
           </h2>
           <p className="mx-auto mt-3 max-w-md text-muted-foreground">
             Pages make space for habits, intentions, and the quiet satisfaction
-            of showing up.
+            of showing up, You can't delete them.
           </p>
           <Button
             data-testid="button-empty-add-page"
@@ -1225,7 +1225,7 @@ function TrackerHome({ user }: { user: AuthUser }) {
                 <Sparkles size={17} className="text-[#e1912f]" />
               </div>
               <p className="mt-5 text-sm font-medium leading-6">
-                “Consistency is not loud. It is the quiet return.”
+                “Consistency is the bridge to achieving any long-term goal.”
               </p>
               <p className="mt-2 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
                 — your future self
