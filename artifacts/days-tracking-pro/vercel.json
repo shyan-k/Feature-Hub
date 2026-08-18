@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "https://743b5d1e-4920-4175-a8e0-2945a263bdc8-00-3d0em220zhfo5.pike.replit.dev/api/:path*"
+    }
+  ]
+}
