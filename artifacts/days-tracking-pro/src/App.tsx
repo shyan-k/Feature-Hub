@@ -1283,7 +1283,7 @@ function TrackerHome({ user }: { user: AuthUser }) {
                       data-testid={`button-delete-page-${page.id}`}
                       onClick={() => deletePage(page.id)}
                       aria-label={`Delete ${page.habitName}`}
-                      className="shrink-0 rounded-lg p-1.5 text-muted-foreground opacity-0 transition hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100"
+                      className="shrink-0 rounded-lg p-1.5 text-muted-foreground transition hover:bg-destructive/10 hover:text-destructive"
                     >
                       <Trash2 size={15} />
                     </button>
