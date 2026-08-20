@@ -9,9 +9,6 @@ import {
   ArrowRight,
   Bell,
   Check,
-  ChevronDown,
-  ChevronLeft,
-  ChevronRight,
   Circle,
   CircleDashed,
   Clock3,
@@ -70,6 +67,12 @@ import {
 
 const queryClient = new QueryClient();
 const today = () => new Date().toISOString().slice(0, 10);
+
+// The generated TrackerPage type only knows "none" | "checked" | "crossed"
+// for trackerData values. Rather than edit the generated @workspace/api-zod
+// package, we track the extra "half" ("O") state with this local type and
+// cast at the point we hand data back to the generated save mutation.
+type DayValue = "none" | "checked" | "half" | "crossed";
 const initials = (name: string) =>
   name
     .split(" ")
@@ -751,10 +754,12 @@ function DayCell({
   date,
   value,
   onChange,
+  size = "md",
 }: {
   date: string;
-  value: "none" | "checked" | "crossed";
-  onChange: (date: string, value: "none" | "checked" | "crossed") => void;
+  value: DayValue;
+  onChange: (date: string, value: DayValue) => void;
+  size?: "md" | "sm";
 }) {
   const day = new Date(`${date}T12:00:00`);
   const label = day
@@ -762,12 +767,17 @@ function DayCell({
     .slice(0, 2);
   const number = day.getDate();
   const change = () => {
-    const next =
+    // Four-state cycle: an empty day becomes a check, a check becomes a
+    // half ("O" — partially done, keeps the streak alive without growing
+    // it), a half becomes a cross, and a cross clears back to empty.
+    const next: DayValue =
       value === "checked"
-        ? "crossed"
-        : value === "crossed"
-          ? "none"
-          : "checked";
+        ? "half"
+        : value === "half"
+          ? "crossed"
+          : value === "crossed"
+            ? "none"
+            : "checked";
     if (
       localStorage.getItem("days-sound") !== "off" &&
       "AudioContext" in window
@@ -780,7 +790,8 @@ function DayCell({
         const context = new AudioContextClass();
         const oscillator = context.createOscillator();
         const gain = context.createGain();
-        oscillator.frequency.value = next === "checked" ? 660 : 220;
+        oscillator.frequency.value =
+          next === "checked" ? 660 : next === "half" ? 420 : 220;
         oscillator.type = "sine";
         gain.gain.setValueAtTime(0.035, context.currentTime);
         gain.gain.exponentialRampToValueAtTime(
@@ -795,6 +806,15 @@ function DayCell({
     }
     onChange(date, next);
   };
+  const dims = size === "sm" ? "h-9 w-9 sm:h-10 sm:w-10" : "h-11 w-11 sm:h-12 sm:w-12";
+  const toneClass =
+    value === "checked"
+      ? "border-primary bg-primary text-primary-foreground shadow-[0_5px_16px_rgba(25,108,255,.22)] animate-check-pop"
+      : value === "half"
+        ? "border-[#e1912f]/60 bg-[#fff4df] text-[#b5720f]"
+        : value === "crossed"
+          ? "border-[#ef7295]/50 bg-[#fff0f4] text-[#d95878]"
+          : "border-border bg-background text-muted-foreground hover:border-primary/50";
   return (
     <div className="group flex flex-col items-center gap-2">
       <span className="font-mono text-[10px] uppercase text-muted-foreground">
@@ -802,12 +822,14 @@ function DayCell({
       </span>
       <button
         data-testid={`button-day-${date}`}
-        title={`${date}: ${value}`}
+        title={`${date}: ${value === "half" ? "half-done" : value}`}
         onClick={change}
-        className={`relative grid h-11 w-11 place-items-center rounded-xl border text-sm font-semibold transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md sm:h-12 sm:w-12 ${value === "checked" ? "border-primary bg-primary text-primary-foreground shadow-[0_5px_16px_rgba(25,108,255,.22)] animate-check-pop" : value === "crossed" ? "border-[#ef7295]/50 bg-[#fff0f4] text-[#d95878]" : "border-border bg-background text-muted-foreground hover:border-primary/50"}`}
+        className={`relative grid ${dims} place-items-center rounded-xl border text-sm font-semibold transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${toneClass}`}
       >
         {value === "checked" ? (
           <Check size={18} strokeWidth={2.5} />
+        ) : value === "half" ? (
+          <span className="text-[15px] font-bold leading-none">O</span>
         ) : value === "crossed" ? (
           <X size={17} />
         ) : (
@@ -835,7 +857,7 @@ function NewPage({
       color,
       icon: "spark",
       startDate: today(),
-      daysCount: 28,
+      daysCount: 30,
       autoCheck: "none",
       timer: "never",
       trackerData: {},
@@ -911,7 +933,6 @@ function TrackerHome({ user }: { user: AuthUser }) {
   const initialized = useRef(false);
   const [tracker, setTracker] = useState<TrackerState | null>(null);
   const [showNew, setShowNew] = useState(false);
-  const [weekOffset, setWeekOffset] = useState(0);
   useEffect(() => {
     if (serverTracker && !initialized.current) {
       initialized.current = true;
@@ -947,15 +968,51 @@ function TrackerHome({ user }: { user: AuthUser }) {
   const active =
     tracker?.pages.find((page) => page.id === tracker.activePageId) ??
     tracker?.pages[0];
-  const dates = useMemo(() => {
-    const end = new Date();
-    end.setDate(end.getDate() + weekOffset * 7);
-    return Array.from({ length: 7 }, (_, index) => {
-      const d = new Date(end);
-      d.setDate(end.getDate() - (6 - index));
+  // The full, chronological run of dates for the active page's own window —
+  // always exactly `daysCount` days long, starting wherever `startDate` is
+  // set, regardless of which day of the month/year that is.
+  const pageDates = useMemo(() => {
+    if (!active) return [] as string[];
+    const start = new Date(`${active.startDate}T12:00:00`);
+    if (Number.isNaN(start.getTime())) return [] as string[];
+    return Array.from({ length: active.daysCount }, (_, index) => {
+      const d = new Date(start);
+      d.setDate(start.getDate() + index);
       return d.toISOString().slice(0, 10);
     });
-  }, [weekOffset]);
+  }, [active]);
+  const stats = useMemo(() => {
+    if (!active) return { streak: 0, totalChecked: 0, totalHalf: 0, totalCrossed: 0 };
+    let totalChecked = 0;
+    let totalHalf = 0;
+    let totalCrossed = 0;
+    for (const key of pageDates) {
+      const v = (active.trackerData[key] as DayValue | undefined) ?? "none";
+      if (v === "checked") totalChecked += 1;
+      else if (v === "half") totalHalf += 1;
+      else if (v === "crossed") totalCrossed += 1;
+    }
+    // Walk backward from today (skipping days that haven't happened yet)
+    // to find the live streak. A half day keeps the streak going without
+    // growing it; a crossed day, or an unmarked day that's already past,
+    // ends it.
+    const todayKey = today();
+    let streak = 0;
+    for (let i = pageDates.length - 1; i >= 0; i -= 1) {
+      const key = pageDates[i];
+      if (key > todayKey) continue;
+      const v = (active.trackerData[key] as DayValue | undefined) ?? "none";
+      if (v === "checked") {
+        streak += 1;
+        continue;
+      }
+      if (v === "half") continue;
+      if (v === "crossed") break;
+      if (key === todayKey) continue; // today just hasn't been marked yet
+      break;
+    }
+    return { streak, totalChecked, totalHalf, totalCrossed };
+  }, [active, pageDates]);
   if (isLoading) return <Skeleton />;
   if (isError)
     return (
@@ -995,12 +1052,23 @@ function TrackerHome({ user }: { user: AuthUser }) {
       ),
     });
   };
-  const setDay = (date: string, value: "none" | "checked" | "crossed") => {
+  const setDay = (date: string, value: DayValue) => {
     if (!active) return;
     updatePage({
       ...active,
-      trackerData: { ...active.trackerData, [date]: value },
+      // The generated TrackerPage type only knows about three day states;
+      // "half" is an extra client-side state layered on top of it. Cast at
+      // this single boundary rather than widening the generated type.
+      trackerData: { ...active.trackerData, [date]: value } as TrackerPage["trackerData"],
     });
+  };
+  const changeStartDate = (date: string) => {
+    if (!active || !date) return;
+    updatePage({ ...active, startDate: date });
+  };
+  const changeDaysCount = (count: number) => {
+    if (!active || Number.isNaN(count)) return;
+    updatePage({ ...active, daysCount: Math.min(90, Math.max(7, Math.round(count))) });
   };
   const createPage = (page: TrackerPage) => {
     const next = {
@@ -1035,9 +1103,10 @@ function TrackerHome({ user }: { user: AuthUser }) {
           : tracker.activePageId,
     });
   };
-  const checked = active
-    ? Object.values(active.trackerData).filter((v) => v === "checked").length
-    : 0;
+  const rangeLabel =
+    pageDates.length > 0
+      ? `${new Date(`${pageDates[0]}T12:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric" })} – ${new Date(`${pageDates[pageDates.length - 1]}T12:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`
+      : "";
   return (
     <div className="mx-auto max-w-[1280px]">
       <div className="mb-10 flex flex-col justify-between gap-5 sm:flex-row sm:items-end animate-rise">
@@ -1111,52 +1180,58 @@ function TrackerHome({ user }: { user: AuthUser }) {
                       </span>
                     </div>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      Your last seven days, gently held.
+                      {rangeLabel} · {active.daysCount} days
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-1 self-end rounded-xl border border-border p-1 sm:self-auto">
-                  <button
-                    data-testid="button-week-previous"
-                    onClick={() => setWeekOffset(weekOffset - 1)}
-                    className="rounded-lg p-2 text-muted-foreground hover:bg-muted"
-                  >
-                    <ChevronLeft size={17} />
-                  </button>
-                  <span className="px-2 font-mono text-[10px] text-muted-foreground">
-                    {weekOffset === 0
-                      ? "THIS WEEK"
-                      : `${Math.abs(weekOffset)}W ${weekOffset < 0 ? "AGO" : "AHEAD"}`}
-                  </span>
-                  <button
-                    data-testid="button-week-next"
-                    onClick={() => setWeekOffset(weekOffset + 1)}
-                    className="rounded-lg p-2 text-muted-foreground hover:bg-muted"
-                  >
-                    <ChevronRight size={17} />
-                  </button>
+                <div className="flex flex-wrap items-center gap-2 self-end sm:self-auto">
+                  <label className="flex items-center gap-1.5 rounded-xl border border-border px-2.5 py-1.5 text-xs text-muted-foreground">
+                    start
+                    <input
+                      data-testid="input-page-start-date"
+                      type="date"
+                      value={active.startDate}
+                      onChange={(e) => changeStartDate(e.target.value)}
+                      className="bg-transparent font-mono text-[11px] text-foreground outline-none"
+                    />
+                  </label>
+                  <label className="flex items-center gap-1.5 rounded-xl border border-border px-2.5 py-1.5 text-xs text-muted-foreground">
+                    days
+                    <input
+                      data-testid="input-page-days-count"
+                      type="number"
+                      min={7}
+                      max={90}
+                      value={active.daysCount}
+                      onChange={(e) => changeDaysCount(Number(e.target.value))}
+                      className="w-12 bg-transparent font-mono text-[11px] text-foreground outline-none"
+                    />
+                  </label>
                 </div>
               </div>
               <div className="px-6 py-8 sm:px-8">
-                <div className="flex items-center justify-between gap-2 overflow-x-auto">
-                  {dates.map((date) => (
+                <div className="grid grid-cols-5 gap-2 sm:grid-cols-7 sm:gap-3 md:grid-cols-10">
+                  {pageDates.map((date) => (
                     <DayCell
                       key={date}
                       date={date}
-                      value={active.trackerData[date] ?? "none"}
+                      value={(active.trackerData[date] as DayValue | undefined) ?? "none"}
                       onChange={setDay}
+                      size="sm"
                     />
                   ))}
                 </div>
-                <div className="mt-8 flex items-center justify-between border-t border-border pt-5">
-                  <p className="text-xs text-muted-foreground">
-                    <span
-                      data-testid="text-week-checked"
-                      className="font-semibold text-foreground"
-                    >
-                      {checked} checked
-                    </span>{" "}
-                    across this page
+                <div className="mt-8 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-5">
+                  <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                    <span data-testid="text-week-checked" className="font-semibold text-foreground">
+                      {stats.totalChecked} checked
+                    </span>
+                    <span className="font-semibold text-[#b5720f]">
+                      {stats.totalHalf} half
+                    </span>
+                    <span className="font-semibold text-[#d95878]">
+                      {stats.totalCrossed} crossed
+                    </span>
                   </p>
                   <p className="flex items-center gap-1.5 text-xs font-semibold text-[#e1912f]">
                     <Flame size={15} /> keep the ember going
@@ -1178,23 +1253,25 @@ function TrackerHome({ user }: { user: AuthUser }) {
                   data-testid="text-streak"
                   className="mt-8 font-display text-7xl font-bold tracking-[-.08em]"
                 >
-                  {Math.max(checked, 0)}
-                  <span className="ml-2 text-3xl text-[#79e5ff]">days</span>
+                  {Math.max(stats.streak, 0)}
+                  <span className="ml-2 text-3xl text-[#79e5ff]">
+                    {stats.streak === 1 ? "day" : "days"}
+                  </span>
                 </p>
                 <p className="mt-2 max-w-[230px] text-sm leading-6 text-[#aac8e6]">
-                  {checked > 0
-                    ? "The proof is in the showing up. Let tomorrow meet today."
+                  {stats.streak > 0
+                    ? "A half day keeps this alive without rushing it. Let tomorrow meet today."
                     : "Your first check-in is waiting for you."}
                 </p>
                 <div className="mt-9 h-1.5 overflow-hidden rounded-full bg-[#507bb6]/40">
                   <div
                     className="h-full rounded-full bg-[#72e6ff] transition-all duration-500"
-                    style={{ width: `${Math.min(100, (checked / 7) * 100)}%` }}
+                    style={{ width: `${Math.min(100, (stats.totalChecked / Math.max(active.daysCount, 1)) * 100)}%` }}
                   />
                 </div>
                 <div className="mt-2 flex justify-between font-mono text-[10px] text-[#83a9d4]">
-                  <span>week rhythm</span>
-                  <span>{Math.round((checked / 7) * 100)}%</span>
+                  <span>page completion</span>
+                  <span>{Math.round((stats.totalChecked / Math.max(active.daysCount, 1)) * 100)}%</span>
                 </div>
               </div>
             </section>
@@ -1228,11 +1305,7 @@ function TrackerHome({ user }: { user: AuthUser }) {
                 data-testid="text-checkin-count"
                 className="mt-5 font-display text-4xl font-bold"
               >
-                {
-                  Object.values(active.trackerData).filter(
-                    (v) => v === "checked",
-                  ).length
-                }
+                {stats.totalChecked}
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
                 little acts of keeping faith
@@ -1253,7 +1326,7 @@ function TrackerHome({ user }: { user: AuthUser }) {
               </p>
             </div>
           </div>
-          {tracker && tracker.pages.length > 1 && (
+          {tracker && tracker.pages.length > 0 && (
             <div className="mt-8">
               <p className="mb-3 font-mono text-[10px] uppercase tracking-[.18em] text-muted-foreground">
                 your pages
