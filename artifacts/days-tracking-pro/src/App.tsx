@@ -35,6 +35,7 @@ import {
   Sun,
   Target,
   Timer,
+  Trash2,
   TrendingUp,
   Volume2,
   X,
@@ -157,7 +158,7 @@ function CreditsDialog({ onClose }: { onClose: () => void }) {
         </div>
         <div className="mt-8 rounded-2xl bg-primary/5 p-5">
           <p className="text-lg font-semibold">
-           App Developed By: Shayan Khan.
+            Every credit goes to Shayan Khan.
           </p>
           <p className="mt-2 text-sm leading-6 text-muted-foreground">
             Days Tracking Pro is a private place to keep promises, notice
@@ -165,7 +166,7 @@ function CreditsDialog({ onClose }: { onClose: () => void }) {
           </p>
         </div>
         <p className="mt-6 text-center font-mono text-[10px] uppercase tracking-[.2em] text-muted-foreground">
-         everything else: also me
+          Also Me
         </p>
         <Button
           data-testid="button-dismiss-credits"
@@ -173,7 +174,7 @@ function CreditsDialog({ onClose }: { onClose: () => void }) {
           onClick={onClose}
           className="mt-6 w-full"
         >
-          Back to the Track
+          Back to my days
         </Button>
       </section>
     </div>
@@ -192,7 +193,7 @@ function InstallHelpDialog({ onClose }: { onClose: () => void }) {
         <div className="flex items-start justify-between">
           <div>
             <p className="font-mono text-[10px] uppercase tracking-[.2em] text-primary">
-              install days tracking pro
+              install days
             </p>
             <h2
               id="install-help-title"
@@ -241,7 +242,7 @@ function InstallHelpDialog({ onClose }: { onClose: () => void }) {
           onClick={onClose}
           className="mt-7 w-full"
         >
-          Got it Bro
+          Got it
         </Button>
       </section>
     </div>
@@ -1014,6 +1015,26 @@ function TrackerHome({ user }: { user: AuthUser }) {
     persist(next);
     setShowNew(false);
   };
+  const deletePage = (id: string) => {
+    if (!tracker) return;
+    const page = tracker.pages.find((p) => p.id === id);
+    if (!page) return;
+    if (
+      !window.confirm(
+        `Delete "${page.habitName}"? This can't be undone — its check-ins will be gone too.`,
+      )
+    )
+      return;
+    const remaining = tracker.pages.filter((p) => p.id !== id);
+    persist({
+      ...tracker,
+      pages: remaining,
+      activePageId:
+        tracker.activePageId === id
+          ? (remaining[0]?.id ?? "")
+          : tracker.activePageId,
+    });
+  };
   const checked = active
     ? Object.values(active.trackerData).filter((v) => v === "checked").length
     : 0;
@@ -1028,7 +1049,7 @@ function TrackerHome({ user }: { user: AuthUser }) {
             data-testid="text-greeting"
             className="mt-3 font-display text-[clamp(2.2rem,5vw,4rem)] font-bold leading-none tracking-[-.055em]"
           >
-            Good to see you, {user.name.split(" ")[0]}
+            Good to see you, {user.name?.split(" ")[0] ?? "there"}
             <span className="text-primary">.</span>
           </h1>
           <p className="mt-4 text-muted-foreground">
@@ -1055,7 +1076,7 @@ function TrackerHome({ user }: { user: AuthUser }) {
           </h2>
           <p className="mx-auto mt-3 max-w-md text-muted-foreground">
             Pages make space for habits, intentions, and the quiet satisfaction
-            of showing up, You can't delete them.
+            of showing up.
           </p>
           <Button
             data-testid="button-empty-add-page"
@@ -1225,7 +1246,7 @@ function TrackerHome({ user }: { user: AuthUser }) {
                 <Sparkles size={17} className="text-[#e1912f]" />
               </div>
               <p className="mt-5 text-sm font-medium leading-6">
-                “Consistency is the bridge to achieving any long-term goal.”
+                “Consistency is not loud. It is the quiet return.”
               </p>
               <p className="mt-2 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
                 — your future self
@@ -1239,22 +1260,34 @@ function TrackerHome({ user }: { user: AuthUser }) {
               </p>
               <div className="flex gap-3 overflow-x-auto pb-2">
                 {tracker.pages.map((page) => (
-                  <button
-                    data-testid={`button-page-${page.id}`}
+                  <div
                     key={page.id}
-                    onClick={() =>
-                      persist({ ...tracker, activePageId: page.id })
-                    }
-                    className={`flex min-w-[180px] items-center gap-3 rounded-2xl border p-3 text-left transition ${page.id === active.id ? "border-primary bg-primary/5" : "border-border bg-card hover:border-primary/40"}`}
+                    className={`group flex min-w-[180px] items-center gap-1 rounded-2xl border p-3 transition ${page.id === active.id ? "border-primary bg-primary/5" : "border-border bg-card hover:border-primary/40"}`}
                   >
-                    <span
-                      className="h-8 w-8 rounded-lg"
-                      style={{ backgroundColor: page.color }}
-                    />
-                    <span className="truncate text-sm font-semibold">
-                      {page.habitName}
-                    </span>
-                  </button>
+                    <button
+                      data-testid={`button-page-${page.id}`}
+                      onClick={() =>
+                        persist({ ...tracker, activePageId: page.id })
+                      }
+                      className="flex flex-1 items-center gap-3 overflow-hidden text-left"
+                    >
+                      <span
+                        className="h-8 w-8 shrink-0 rounded-lg"
+                        style={{ backgroundColor: page.color }}
+                      />
+                      <span className="truncate text-sm font-semibold">
+                        {page.habitName}
+                      </span>
+                    </button>
+                    <button
+                      data-testid={`button-delete-page-${page.id}`}
+                      onClick={() => deletePage(page.id)}
+                      aria-label={`Delete ${page.habitName}`}
+                      className="shrink-0 rounded-lg p-1.5 text-muted-foreground opacity-0 transition hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100"
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
                 ))}
               </div>
             </div>
