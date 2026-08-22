@@ -2,14 +2,12 @@ import { Router, type IRouter, type Request, type Response } from "express";
 import { and, eq, gt } from "drizzle-orm";
 import { createHash, randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 import { db, sessionsTable, trackerStatesTable, usersTable } from "@workspace/db";
+import { z } from "zod/v4";
 import {
   CreateReportBody,
   CreateReportResponse,
   GetCurrentUserResponse,
   GetTrackerInsightsResponse,
-  GetTrackerResponse,
-  SaveTrackerBody,
-  SaveTrackerResponse,
   SignInBody,
   SignInResponse,
   SignUpBody,
@@ -19,6 +17,55 @@ import {
 const router: IRouter = Router();
 const SESSION_DAYS = 30;
 const FORM_ENDPOINT = "https://formspree.io/f/xbdeqknr";
+
+// ---------------------------------------------------------------------------
+// Tracker state validation
+// ---------------------------------------------------------------------------
+// The tracker/save routes used to validate against SaveTrackerBody /
+// GetTrackerResponse from the generated @workspace/api-zod package. That
+// package is generated from an OpenAPI spec and can lag behind the frontend
+// — e.g. it may only know about "none" | "checked" | "crossed" day values,
+// not the newer "half" state. Because the whole tracker state is saved as
+// one JSON blob, a schema that's even slightly out of date rejects the
+// ENTIRE save — including unrelated changes like a page's start date —
+// with no visible error to the user, since the frontend doesn't currently
+// surface save failures.
+//
+// To avoid that class of bug entirely, the tracker routes below validate
+// against this local, deliberately permissive schema instead. It checks
+// the shape is sane (right field names/types) without hard-coding an enum
+// of day values or locking down what "history" entries look like, so it
+// stays compatible as the frontend's tracker features evolve.
+const dayValueSchema = z.string().min(1).max(24);
+
+const trackerPageSchema = z
+  .object({
+    id: z.string().min(1),
+    habitName: z.string().min(1).max(120),
+    color: z.string().min(1).max(40),
+    icon: z.string().min(1).max(40),
+    startDate: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, "startDate must be in YYYY-MM-DD format"),
+    daysCount: z.number().int().min(1).max(366),
+    autoCheck: z.string().min(1).max(20),
+    timer: z.string().min(1).max(20),
+    trackerData: z.record(z.string(), dayValueSchema).default({}),
+    // Reserved for saved/archived cycles. Left intentionally loose since
+    // the shape of a history entry isn't finalized yet.
+    history: z.array(z.unknown()).default([]),
+  })
+  // Tolerate any additional fields a newer frontend adds later, rather
+  // than rejecting the whole save because of one unrecognized key.
+  .passthrough();
+
+const trackerStateSchema = z
+  .object({
+    profileName: z.string().min(1).max(120),
+    activePageId: z.string(),
+    pages: z.array(trackerPageSchema),
+  })
+  .passthrough();
 
 function sessionId(): string {
   return randomBytes(32).toString("hex");
@@ -172,7 +219,12 @@ router.get("/tracker", async (req, res): Promise<void> => {
   }
   const [saved] = await db.select().from(trackerStatesTable).where(eq(trackerStatesTable.userId, user.id));
   const data = saved?.data ?? defaultState(user.name);
-  res.json(GetTrackerResponse.parse(data));
+  // Sent as-is: this has already been validated (either just now via
+  // defaultState, or previously on the way in via trackerStateSchema in
+  // PUT /tracker below), and re-parsing it through the generated,
+  // possibly-stricter GetTrackerResponse schema here risks silently
+  // stripping or rejecting newer fields like "half" day values.
+  res.json(data);
 });
 
 router.put("/tracker", async (req, res): Promise<void> => {
@@ -181,7 +233,7 @@ router.put("/tracker", async (req, res): Promise<void> => {
     res.status(401).json({ error: "Not signed in." });
     return;
   }
-  const parsed = SaveTrackerBody.safeParse(req.body);
+  const parsed = trackerStateSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
     return;
@@ -194,7 +246,7 @@ router.put("/tracker", async (req, res): Promise<void> => {
     target: trackerStatesTable.userId,
     set: { data: parsed.data, updatedAt: new Date() },
   }).returning();
-  res.json(SaveTrackerResponse.parse(saved?.data ?? parsed.data));
+  res.json(saved?.data ?? parsed.data);
 });
 
 router.get("/tracker/insights", async (req, res): Promise<void> => {
@@ -224,6 +276,10 @@ router.get("/tracker/insights", async (req, res): Promise<void> => {
     for (const [, value] of values.sort(([a], [b]) => a.localeCompare(b))) {
       if (value === "checked") {
         streak += 1;
+        bestStreak = Math.max(bestStreak, streak);
+      } else if (value === "half") {
+        // A half day is neutral: it keeps the current streak alive
+        // without growing it, and doesn't reset the count either.
         bestStreak = Math.max(bestStreak, streak);
       } else {
         streak = 0;
